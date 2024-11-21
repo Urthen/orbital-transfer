@@ -1,11 +1,14 @@
-local flib_on_tick_n = require("__flib__/on-tick-n")
-
 local function debug(message, deep)
   if (not deep and settings.global["orbital-transfer-debug"].value) or settings.global["orbital-transfer-deep-debug"].value then
     game.print(message)
   end
 end
 
+local DELIVERY_LAUNCH_HEIGHT = 10
+
+-- ###############################################
+-- ### PLATFORM TRACKING
+-- ###############################################
 local function default_platform_data(platform)
   return {
     platform = platform,
@@ -62,6 +65,9 @@ local function initialize_platform(platform)
   return platform_data
 end
 
+-- ###############################################
+-- ### CHEST (DE)REGISTRATION
+-- ###############################################
 local function register_transfer_chest(event)
   debug("Built " .. event.entity.name .. " on platform " .. event.platform.name)
 
@@ -106,6 +112,25 @@ end
 local function rescan_platform(platform)
   rescan_requester_chests(platform)
   rescan_provider_chests(platform)
+end
+
+
+-- ###############################################
+-- ### ON NTH TICK (REQUEST HANDLING)
+-- ###############################################
+local function render_stack(stack, position, surface)
+  local sprite_path = "item/" .. stack.name
+  local sprite = rendering.draw_sprite{
+    sprite = sprite_path,
+    x_scale = 0.66,
+    y_scale = 0.66,
+    target = position,
+    surface = surface,
+    render_layer = "air-object",
+    orientation = math.random()
+  }
+
+  return sprite
 end
 
 local function process_orbit(space_location_name, orbiting_platforms)
@@ -202,7 +227,7 @@ local function process_orbit(space_location_name, orbiting_platforms)
 
         -- game.print("Surface Forces " .. serpent.line(provider_chest.force == requester_chest.force) .. " request " .. serpent.line(requester_chest.force) .. " to provider " .. serpent.line(provider_chest.force))
 
-        if (provider_chest.surface_index ~= requester_chest.surface_index) then
+      if (provider_chest.surface_index ~= requester_chest.surface_index) then
           if (provider_chest.force == requester_chest.force) then
             -- match made in heaven
             available_by_unit_number[available_unit_number] = nil
@@ -212,12 +237,20 @@ local function process_orbit(space_location_name, orbiting_platforms)
             local transit_inventory = game.create_inventory(1)
             local transit_item_stack = transit_inventory[1]
 
+            -- put the item into the transfer inventory, that way spoilage etc is maintained and even keeps ticking
             provided_item_stack.swap_stack(transit_item_stack)
 
-            flib_on_tick_n.add(game.tick + settings.global["orbital-transfer-delivery-delay"].value, {
-              type = "delivery",
+            -- create sprite
+            local launch_position = {provider_chest.position.x, provider_chest.position.y - 0.5}
+            local sprite = render_stack(transit_item_stack, launch_position, provider_chest.surface)
+
+            -- create the delivery
+            table.insert(storage.deliveries, {
               target = requester_chest,
-              transit_inventory = transit_inventory
+              transit_inventory = transit_inventory,              
+              tick_launched = game.tick,
+              swapped_surface = false,
+              sprite = sprite
             })
 
             storage.registered_chests[request_unit_number].last_tick_active = game.tick
@@ -241,41 +274,106 @@ script.on_nth_tick(settings.global["orbital-transfer-tick-rate"].value --[[@as i
   end
 end)
 
-local function handleTask(task)  
-  if task.type == "delivery" then
-    local transit_stack = task.transit_inventory[1]
-    if task.target.valid then      
-      debug("Delivering " .. transit_stack.count .. " " .. transit_stack.name .. ' to ' .. task.target.name .. ' on ' .. task.target.surface.platform.name, true)
-      
-      -- deliver to output inventory just in case another delivery arrived before this one was removed 
-      local delivery_inventory = task.target.get_output_inventory()
-      delivery_inventory.insert(transit_stack)
-      task.transit_inventory.destroy()
+-- ###############################################
+-- ### ON TICK
+-- ###############################################
 
-      -- not sure if getting script inventories is expensive so wrap this in another check
-      if settings.global["orbital-transfer-deep-debug"].value then
-        debug("Transit inventories remaining: " .. #game.get_script_inventories('orbital-transfer'), true)
-      end
-    else      
-      debug("Requester chest removed before delivery completed, " .. transit_stack.count .. " " .. transit_stack.name .. " lost in space.")
-      task.transit_inventory.destroy()
+local function completeDelivery(delivery)
+  local transit_stack = delivery.transit_inventory[1]
+  if delivery.target.valid then      
+    debug("Delivering " .. transit_stack.count .. " " .. transit_stack.name .. ' to ' .. delivery.target.name .. ' on ' .. delivery.target.surface.platform.name, true)
+    
+    -- deliver to output inventory just in case another delivery arrived before this one was removed 
+    local delivery_inventory = delivery.target.get_output_inventory()
+    delivery_inventory.insert(transit_stack)
+    delivery.transit_inventory.destroy()
+
+    -- not sure if getting script inventories is expensive so wrap this in another check
+    if settings.global["orbital-transfer-deep-debug"].value then
+      debug("Transit inventories remaining: " .. #game.get_script_inventories('orbital-transfer'), true)
+    end
+  else
+    debug("Requester chest removed before delivery completed, " .. transit_stack.count .. " " .. transit_stack.name .. " lost in space.")
+    delivery.transit_inventory.destroy()
+  end
+end
+
+local function handleOutboundDeliveryTick(delivery)
+  if game.tick >= delivery.tick_launched + (settings.global["orbital-transfer-delivery-delay"].value / 2) then
+    delivery.sprite.destroy()
+    local reentry_position = {delivery.target.position.x, delivery.target.position.y - 0.5 - DELIVERY_LAUNCH_HEIGHT}
+    delivery.sprite = render_stack(delivery.transit_inventory[1], reentry_position, delivery.target.surface)
+    delivery.sprite.color = {0, 0, 0, 0}
+    delivery.swapped_surface = true
+  else
+    local position = delivery.sprite.target.position or {0, 0}
+    position.y = position.y - ((DELIVERY_LAUNCH_HEIGHT * 2) / settings.global["orbital-transfer-delivery-delay"].value)
+    delivery.sprite.target = position
+
+    if game.tick >= delivery.tick_launched + (settings.global["orbital-transfer-delivery-delay"].value / 4) then
+      local color = delivery.sprite.color
+      color.a = math.max(color.a - (4 / settings.global["orbital-transfer-delivery-delay"].value), 0)
+      color.r = color.a
+      color.g = color.a
+      color.b = color.a
+      delivery.sprite.color = color
     end
   end
 end
 
+local function handleInboundDeliveryTick(delivery)
+  local position = delivery.sprite.target.position or {0, 0}
+  position.y = position.y + ((DELIVERY_LAUNCH_HEIGHT * 2) / settings.global["orbital-transfer-delivery-delay"].value)
+  delivery.sprite.target = position
+
+  local color = delivery.sprite.color
+  color.a = math.min(color.a + (4 / settings.global["orbital-transfer-delivery-delay"].value), 1)
+  color.r = color.a
+  color.g = color.a
+  color.b = color.a
+  delivery.sprite.color = color
+end
+
+
+
 script.on_event(defines.events.on_tick, function(event)
-  for _, task in pairs(flib_on_tick_n.retrieve(event.tick) or {}) do
-    if type(task)=="table" and task.type then
-      handleTask(task)
+  if not storage.deliveries then storage.deliveries = {} end
+  local still_valid_delivieries = {}
+
+  -- Handle each delivery appropriately
+  for _, delivery in pairs(storage.deliveries) do
+    if game.tick > delivery.tick_launched + settings.global["orbital-transfer-delivery-delay"].value then
+      if delivery.sprite and delivery.sprite.valid then
+        delivery.sprite.destroy()
+      end
+      completeDelivery(delivery)
+    else
+      if not delivery.swapped_surface then
+        handleOutboundDeliveryTick(delivery)
+      else
+        handleInboundDeliveryTick(delivery)
+      end
+      table.insert(still_valid_delivieries, delivery)
     end
   end
+
+  storage.deliveries = still_valid_delivieries
 end)
+
+
+-- ###############################################
+-- ### ON BUILT ENTITY
+-- ###############################################
 
 script.on_event(defines.events.on_space_platform_built_entity, register_transfer_chest,
   {
     { filter = "name", name = "orbital-transfer-requester" },
     { filter = "name", name = "orbital-transfer-provider" }
   })
+
+-- ###############################################
+-- ### ON OBJECT DESTROYED
+-- ###############################################
 
 local function deregister_transfer_chest(name, platform_name)
   debug("Removed chest on platform " .. platform_name)
@@ -299,6 +397,10 @@ end
 
 script.on_event(defines.events.on_object_destroyed, on_object_destroyed)
 
+
+-- ###############################################
+-- ### ON SPACE PLATFORM CHANGED STATE
+-- ###############################################
 script.on_event(defines.events.on_space_platform_changed_state, function(event)
   local platform = event.platform
   local platform_data = storage.platforms_with_chests[event.platform.name]
@@ -319,12 +421,17 @@ script.on_event(defines.events.on_space_platform_changed_state, function(event)
   end
 end)
 
+
+-- ###############################################
+-- ### ON INIT
+-- ###############################################
 script.on_init(function()
-  flib_on_tick_n.init()
   storage.platforms_by_space_location = {}
-  -- {"space_location_name": {"platform-name", .. more platforms ..}, .. more locations
+  -- {"space_location_nam: {"platform-name", .. more platforms ..}, .. more locations
   storage.platforms_with_chests = {}
   -- {"platform-name": {platform: platform_entity, latest_location: space_location, requester_chests: {entities}, provider_chests: {entities}}
   storage.registered_chests = {}
   -- {unit_number: {entity, platform, last_tick_active}}
+  storage.deliveries = {}
+  -- {{tick_launched, target, transit_inventory}}
 end)

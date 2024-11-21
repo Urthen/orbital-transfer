@@ -1,6 +1,12 @@
 data:extend({
   {
     type = "bool-setting",
+    name = "orbital-transfer-fuel-oxidizer-barrels",
+    setting_type = "startup",
+    default_value = true
+  },
+  {
+    type = "bool-setting",
     name = "orbital-transfer-deep-debug",
     setting_type = "runtime-global",
     default_value = false

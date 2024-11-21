@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "title": "Orbital Transfer",
     "author": "Urthen",
-    "dependencies": ["base >= 2.0.0", "space-age >= 2.0.0", "flib >= 0.15.0"],
+    "dependencies": ["base >= 2.0.0", "space-age >= 2.0.0"],
     "space_travel_required": true,
     "factorio_version": "2.0"
   }

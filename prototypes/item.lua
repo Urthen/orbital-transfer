@@ -31,3 +31,20 @@ data:extend({
     random_tint_color = item_tints.iron_rust
   },
 })
+
+if settings.startup["orbital-transfer-fuel-oxidizer-barrels"].value then
+
+  data.raw.fluid["thruster-fuel"].auto_barrel = true
+  data.raw.fluid["thruster-oxidizer"].auto_barrel = true
+
+  -- local fuel_copy = table.deepcopy(data.raw.fluid["thruster-fuel"])
+  -- local oxidizer_copy = table.deepcopy(data.raw.fluid["thruster-oxidizer"])
+
+  -- fuel_copy.auto_barrel = true
+  -- oxidizer_copy.auto_barrel = true
+
+  -- data:extend({
+  --   fuel_copy,
+  --   oxidizer_copy
+  -- })
+end
