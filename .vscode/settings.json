@@ -1,0 +1,6 @@
+{
+  "Lua.diagnostics.globals": [
+    "circuit_connector_definitions",
+    "default_circuit_wire_max_distance"
+  ]
+}
