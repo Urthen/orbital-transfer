@@ -5,7 +5,10 @@ data:extend({
   {
     type = "item",
     name = "orbital-transfer-provider",
-    icon = "__base__/graphics/icons/passive-provider-chest.png",
+    icons = {      
+      {icon = "__space-age__/graphics/icons/space-platform-foundation.png", scale=0.5 },
+      {icon = "__base__/graphics/icons/passive-provider-chest.png", scale=0.4 },
+    },
     subgroup = "space-platform",
     order = "e[orbital-transfer]-a",
     inventory_move_sound = item_sounds.metal_chest_inventory_move,
@@ -19,7 +22,10 @@ data:extend({
   {
     type = "item",
     name = "orbital-transfer-requester",
-    icon = "__base__/graphics/icons/requester-chest.png",
+    icons = {      
+      {icon = "__space-age__/graphics/icons/space-platform-foundation.png", scale=0.5 },
+      {icon = "__base__/graphics/icons/requester-chest.png", scale=0.4 },
+    },
     subgroup = "space-platform",
     order = "e[orbital-transfer]-b",
     inventory_move_sound = item_sounds.metal_chest_inventory_move,

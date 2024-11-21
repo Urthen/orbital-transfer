@@ -146,6 +146,24 @@ local function process_orbit(space_location_name, orbiting_platforms)
   for _, platform_name in pairs(orbiting_platforms) do
     local platform_data = storage.platforms_with_chests[platform_name]
 
+    if not platform_data.platform or not platform_data.platform.valid then
+      debug("Platform removed: " .. platform_name)
+
+      for i, orbiting_platform_name in ipairs(orbiting_platforms) do
+        if platform_name == orbiting_platform_name then
+          table.remove(orbiting_platforms, i)
+          break
+        end
+      end
+
+      goto platform_continue
+    end
+
+    if platform_data.platform.scheduled_for_deletion > 0 then
+      -- don't delete it from this system as it may be cancelled, just don't process it
+      goto platform_continue
+    end
+
     -- Get provided items on this platform
     for _, provider_chest in ipairs(platform_data.provider_chests) do
       local last_tick_active = storage.registered_chests[provider_chest.unit_number].last_tick_active
@@ -188,13 +206,15 @@ local function process_orbit(space_location_name, orbiting_platforms)
               quality = requested_quality,
               last_active = storage.registered_chests[requester_chest.unit_number].last_tick_active
             }
-            requested_by_unit_number[requester_chest.unit_number] = request
+          requested_by_unit_number[requester_chest.unit_number] = request
           end
         end
       else 
         debug("skipping requester due to cooldown " .. requester_chest.unit_number, true)
       end
     end
+
+    ::platform_continue::
   end
 
   debug("Available: " .. serpent.block(available_by_unit_number), true)
