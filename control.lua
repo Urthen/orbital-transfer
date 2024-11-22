@@ -166,51 +166,55 @@ local function process_orbit(space_location_name, orbiting_platforms)
 
     -- Get provided items on this platform
     for _, provider_chest in ipairs(platform_data.provider_chests) do
-      local last_tick_active = storage.registered_chests[provider_chest.unit_number].last_tick_active
+      if provider_chest and provider_chest.valid then
+        local last_tick_active = storage.registered_chests[provider_chest.unit_number].last_tick_active
 
-      if last_tick_active <= game.tick - settings.global["orbital-transfer-delivery-delay"].value then
-        local inventory = provider_chest.get_inventory(defines.inventory.chest)
+        if last_tick_active + 1 <= game.tick - settings.global["orbital-transfer-delivery-delay"].value then
+          local inventory = provider_chest.get_inventory(defines.inventory.chest)
 
-        if not inventory.is_empty() then
-          local stack = inventory[1]
+          if not inventory.is_empty() then
+            local stack = inventory[1]
 
-          if stack.count >= prototypes["item"][stack.name].stack_size then
-            available_by_unit_number[provider_chest.unit_number] = { item = stack.name, quality = stack.quality.name }
+            if stack.count >= prototypes["item"][stack.name].stack_size then
+              available_by_unit_number[provider_chest.unit_number] = { item = stack.name, quality = stack.quality.name }
+            end
           end
+        else 
+          debug("skipping provider due to cooldown " .. provider_chest.unit_number, true)
         end
-      else 
-        debug("skipping provider due to cooldown " .. provider_chest.unit_number, true)
       end
     end
 
     --requested items on this platform
-    for _, requester_chest in ipairs(platform_data.requester_chests) do
-      local last_tick_active = storage.registered_chests[requester_chest.unit_number].last_tick_active
-      
-      if last_tick_active <= game.tick - settings.global["orbital-transfer-delivery-delay"].value then
-        local inventory = requester_chest.get_inventory(defines.inventory.chest)
-        local contents = inventory.get_contents()
+    for _, requester_chest in ipairs(platform_data.requester_chests) do      
+      if requester_chest and requester_chest.valid then        
+        -- Note that this delay is critical to prevent another item from landing while the container is full and disappearing
+        local last_tick_active = storage.registered_chests[requester_chest.unit_number].last_tick_active
+        if last_tick_active + 1 <= game.tick - settings.global["orbital-transfer-delivery-delay"].value then
+          local inventory = requester_chest.get_inventory(defines.inventory.chest)
+          local contents = inventory.get_contents()
 
-        -- Dont request if not empty
-        if not contents[1] then
-          -- yep, I'm abusing storage filter as a request since I want to only allow one request at a time.
-          -- may be another way to do this, but this seems to work
-          local filters = requester_chest.get_logistic_point(defines.logistic_member_index.logistic_container).get_section(1).filters
+          -- Dont request if not empty
+          if not contents[1] then
+            -- yep, I'm abusing storage filter as a request since I want to only allow one request at a time.
+            -- may be another way to do this, but this seems to work
+            local filters = requester_chest.get_logistic_point(defines.logistic_member_index.logistic_container).get_section(1).filters
 
-          if filters[1] then
-            local requested_item = filters[1].value.name
-            local requested_quality = filters[1].value.quality
+            if filters[1] then
+              local requested_item = filters[1].value.name
+              local requested_quality = filters[1].value.quality
 
-            local request = {
-              item = requested_item,
-              quality = requested_quality,
-              last_active = storage.registered_chests[requester_chest.unit_number].last_tick_active
-            }
-          requested_by_unit_number[requester_chest.unit_number] = request
+              local request = {
+                item = requested_item,
+                quality = requested_quality,
+                last_active = storage.registered_chests[requester_chest.unit_number].last_tick_active
+              }
+            requested_by_unit_number[requester_chest.unit_number] = request
+            end
           end
+        else 
+          debug("skipping requester due to cooldown " .. requester_chest.unit_number, true)
         end
-      else 
-        debug("skipping requester due to cooldown " .. requester_chest.unit_number, true)
       end
     end
 
@@ -274,7 +278,10 @@ local function process_orbit(space_location_name, orbiting_platforms)
             })
 
             storage.registered_chests[request_unit_number].last_tick_active = game.tick
-            storage.registered_chests[available_unit_number].last_tick_active = game.tick         
+            storage.registered_chests[available_unit_number].last_tick_active = game.tick  
+            
+            -- Stop processing this request
+            break
           else
             debug("Forces don't match", true)
           end

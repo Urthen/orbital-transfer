@@ -18,7 +18,7 @@ data:extend({
     enabled = false,
     ingredients =
     {
-      {type = "item", name = "passive-provider-chest", amount = 1},
+      {type = "item", name = "requester-chest", amount = 1},
       {type = "item", name = "processing-unit", amount = 10},
       {type = "item", name = "electric-engine-unit", amount = 10},
       {type = "item", name = "low-density-structure", amount = 10},

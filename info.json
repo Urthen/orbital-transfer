@@ -1,6 +1,6 @@
 {
     "name": "orbital-transfer",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "title": "Orbital Transfer",
     "author": "Urthen",
     "dependencies": ["base >= 2.0.0", "space-age >= 2.0.0"],
