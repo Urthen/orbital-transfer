@@ -494,8 +494,8 @@ script.on_event(defines.events.on_space_platform_changed_state, function(event)
       and platform_data.latest_location then
     space_platform_exit_orbit(platform, platform_data)
 
-    -- Otherwise, if we didn't already have a location, enter the orbit.
-  elseif not platform_data.latest_location then
+    -- Otherwise, if we didn't already have a location and we're at one now, enter the orbit.
+  elseif not platform_data.latest_location and platform.space_location then
     space_platform_enter_orbit(platform, platform_data)
   end
 end)
