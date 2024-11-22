@@ -1,6 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.0
+Date: 2024.11.22
+  Changes:
+    - Properly handle when something other than the space platform builds a chest
+    - Destroy chests not built on platforms somehow
+    - Warn only the appropriate force, not all players, when a delivery is lost
+    - Handle more cases where a delivery could be lost
+    - Add description
+---------------------------------------------------------------------------------------------------
 Version: 0.1.2
-Date: ????
+Date: 2024.11.21
   Changes:
     - Fix Thumbnail
 ---------------------------------------------------------------------------------------------------
