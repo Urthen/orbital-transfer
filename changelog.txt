@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.2
+Date: 2024.11.24
+  Bugfix:
+    - Handle some more cases that might occur when chests are created/destroyed with editor mode
+---------------------------------------------------------------------------------------------------
 Version: 0.2.1
 Date: 2024.11.22
   Bugfix:

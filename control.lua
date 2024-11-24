@@ -86,6 +86,7 @@ local function register_transfer_chest(event)
   local registration, unit_number, _ = script.register_on_object_destroyed(event.entity)
   storage.registered_chests[unit_number] = {
     platform_name = event.platform.name,
+    platform = event.platform,
     name = event.entity.name,
     last_tick_active =
         game.tick,
@@ -110,16 +111,14 @@ local function register_transfer_chest(event)
   end
 end
 
-local function rescan_requester_chests(platform)
-  local platform_data = storage.platforms_with_chests[platform.name]
-  local matching_chests = platform.surface.find_entities_filtered { name = "orbital-transfer-requester" }
+local function rescan_requester_chests(platform_data)
+  local matching_chests = platform_data.platform.surface.find_entities_filtered { name = "orbital-transfer-requester" }
   platform_data.requester_chests = matching_chests
   debug("Requester chests: " .. #platform_data.requester_chests)
 end
 
-local function rescan_provider_chests(platform)
-  local platform_data = storage.platforms_with_chests[platform.name]
-  local matching_chests = platform.surface.find_entities_filtered { name = "orbital-transfer-provider" }
+local function rescan_provider_chests(platform_data)
+  local matching_chests = platform_data.platform.surface.find_entities_filtered { name = "orbital-transfer-provider" }
   platform_data.provider_chests = matching_chests
   debug("Provider chests: " .. #platform_data.provider_chests)
 end
@@ -454,15 +453,25 @@ script.on_event(defines.events.on_robot_built_entity, register_transfer_chest,
 -- ### ON OBJECT DESTROYED
 -- ###############################################
 
-local function deregister_transfer_chest(name, platform_name)
+local function deregister_transfer_chest(name, platform_name, platform)
   debug("Removed chest on platform " .. platform_name)
   local platform_data = storage.platforms_with_chests[platform_name]
 
-  -- Rescan to see what is still there since we don't know the entity removed
-  if name == "orbital-transfer-requester" then
-    rescan_requester_chests(platform_data.platform)
-  elseif name == "orbital-transfer-provider" then
-    rescan_provider_chests(platform_data.platform)
+  -- edge case probably related to editor mode
+  if not platform_data then
+    if platform then
+      platform_data = initialize_platform(platform)
+      rescan_platform(platform)
+    else
+      debug("Warning: Destroyed transfer chest but no platform information was available")
+    end
+  else
+    -- Rescan to see what is still there since we don't know the entity removed
+    if name == "orbital-transfer-requester" then
+      rescan_requester_chests(platform_data)
+    elseif name == "orbital-transfer-provider" then
+      rescan_provider_chests(platform_data)
+    end
   end
 end
 
@@ -470,7 +479,7 @@ local function on_object_destroyed(event)
   local chest = storage.registered_chests[event.useful_id]
   if chest then
     storage.registered_chests[event.useful_id] = nil
-    deregister_transfer_chest(chest.name, chest.platform_name)
+    deregister_transfer_chest(chest.name, chest.platform_name, chest.platform)
   end
 end
 
@@ -510,7 +519,7 @@ script.on_init(function()
   storage.platforms_with_chests = {}
   -- {"platform-name": {platform: platform_entity, latest_location: space_location, requester_chests: {entities}, provider_chests: {entities}}
   storage.registered_chests = {}
-  -- {unit_number: {entity, platform, last_tick_active}}
+  -- {unit_number: {entity, platform, platform_name, last_tick_active}}
   storage.deliveries = {}
   -- {{tick_launched, target, transit_inventory}}
 end)
