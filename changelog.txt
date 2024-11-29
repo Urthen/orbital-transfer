@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.3
+Date: 2024.11.29
+  Changes:
+    - For performance reasons, requests are no longer ordered by how long they have been waiting.
+    - Added "Render Deliveries" setting defaulting to true. Disabling this can significantly improve performance if you have a lot of chests.
+    - Other performance improvements
+---------------------------------------------------------------------------------------------------
 Version: 0.2.2
 Date: 2024.11.24
   Bugfix:

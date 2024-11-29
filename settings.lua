@@ -13,6 +13,12 @@ data:extend({
   },
   {
     type = "bool-setting",
+    name = "orbital-transfer-render-deliveries",
+    setting_type = "runtime-global",
+    default_value = true
+  },
+  {
+    type = "bool-setting",
     name = "orbital-transfer-debug",
     setting_type = "runtime-global",
     default_value = false
